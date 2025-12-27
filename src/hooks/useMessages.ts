@@ -130,17 +130,17 @@ export const useSendMessage = () => {
           file_name: fileName,
           file_size: fileSize
         })
-        .select(`
-          *,
-          profiles:sender_id (
-            id,
-            username,
-            avatar_url
-          )
-        `)
+        .select('*')
         .single();
 
       if (error) throw error;
+
+      // Fetch profile separately
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('id, username, avatar_url')
+        .eq('id', user.id)
+        .single();
 
       // Update chat's updated_at
       await supabase
@@ -148,7 +148,7 @@ export const useSendMessage = () => {
         .update({ updated_at: new Date().toISOString() })
         .eq('id', chatId);
 
-      return data;
+      return { ...data, profiles: profileData };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['chats'] });
