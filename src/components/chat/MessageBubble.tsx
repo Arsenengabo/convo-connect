@@ -1,6 +1,7 @@
 import { Message } from '@/hooks/useChats';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { MediaPreview } from './MediaPreview';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Check, CheckCheck, Trash2 } from 'lucide-react';
@@ -42,42 +43,12 @@ export const MessageBubble = ({ message, showAvatar = true, onDelete }: MessageB
       );
     }
 
-    switch (message.message_type) {
-      case 'image':
-        return (
-          <div className="space-y-2">
-            <img 
-              src={message.file_url || ''} 
-              alt={message.file_name || 'Image'} 
-              className="max-w-[250px] rounded-lg"
-            />
-            {message.content && <p>{message.content}</p>}
-          </div>
-        );
-      case 'file':
-        return (
-          <div className="space-y-2">
-            <a 
-              href={message.file_url || ''} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 rounded-lg bg-accent/50 p-2 hover:bg-accent"
-            >
-              <div className="text-sm">
-                <p className="font-medium">{message.file_name}</p>
-                {message.file_size && (
-                  <p className="text-xs text-muted-foreground">
-                    {(message.file_size / 1024).toFixed(1)} KB
-                  </p>
-                )}
-              </div>
-            </a>
-            {message.content && <p>{message.content}</p>}
-          </div>
-        );
-      default:
-        return <p className="whitespace-pre-wrap break-words">{message.content}</p>;
+    // Use MediaPreview for files
+    if (message.message_type === 'image' || message.message_type === 'file') {
+      return <MediaPreview message={message} isOwn={isOwn} />;
     }
+
+    return <p className="whitespace-pre-wrap break-words">{message.content}</p>;
   };
 
   const bubble = (

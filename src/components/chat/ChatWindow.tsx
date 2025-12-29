@@ -3,6 +3,10 @@ import { Chat, ChatMember } from '@/hooks/useChats';
 import { useMessages, useSendMessage, useDeleteMessage, useMarkAsRead } from '@/hooks/useMessages';
 import { useAuth } from '@/contexts/AuthContext';
 import { MessageBubble } from './MessageBubble';
+import { FileUploadButton } from './FileUploadButton';
+import { GroupInfoSheet } from './GroupInfoSheet';
+import { LiveSessionButton, LiveSessionDialog } from './LiveSession';
+import { useActiveSession } from '@/hooks/useLiveSession';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,7 +31,9 @@ export const ChatWindow = ({ chat, onBack }: ChatWindowProps) => {
   const sendMessage = useSendMessage();
   const deleteMessage = useDeleteMessage();
   const markAsRead = useMarkAsRead();
+  const { data: activeSession } = useActiveSession(chat.id);
   const [messageText, setMessageText] = useState('');
+  const [showLiveSession, setShowLiveSession] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -134,6 +140,10 @@ export const ChatWindow = ({ chat, onBack }: ChatWindowProps) => {
           <h2 className="font-semibold">{displayInfo.name}</h2>
           <p className="text-xs text-muted-foreground">{displayInfo.subtitle}</p>
         </div>
+        <LiveSessionButton chatId={chat.id} chatName={displayInfo.name} />
+        
+        {chat.is_group && <GroupInfoSheet chat={chat} onLeave={onBack} />}
+        
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
@@ -149,6 +159,15 @@ export const ChatWindow = ({ chat, onBack }: ChatWindowProps) => {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      {/* Live Session Dialog */}
+      {activeSession && showLiveSession && (
+        <LiveSessionDialog 
+          session={activeSession} 
+          chatName={displayInfo.name}
+          onClose={() => setShowLiveSession(false)}
+        />
+      )}
 
       {/* Messages */}
       <ScrollArea className="flex-1 p-4" ref={scrollRef}>
@@ -195,6 +214,7 @@ export const ChatWindow = ({ chat, onBack }: ChatWindowProps) => {
       {/* Message Input */}
       <form onSubmit={handleSendMessage} className="border-t p-4">
         <div className="flex items-center gap-2">
+          <FileUploadButton chatId={chat.id} />
           <Input
             ref={inputRef}
             placeholder="Type a message..."
