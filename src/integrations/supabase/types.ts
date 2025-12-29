@@ -79,6 +79,145 @@ export type Database = {
         }
         Relationships: []
       }
+      file_metadata: {
+        Row: {
+          chat_id: string
+          created_at: string
+          file_name: string
+          file_size: number
+          file_type: string
+          id: string
+          message_id: string | null
+          mime_type: string | null
+          storage_path: string
+          thumbnail_path: string | null
+          uploader_id: string
+        }
+        Insert: {
+          chat_id: string
+          created_at?: string
+          file_name: string
+          file_size: number
+          file_type: string
+          id?: string
+          message_id?: string | null
+          mime_type?: string | null
+          storage_path: string
+          thumbnail_path?: string | null
+          uploader_id: string
+        }
+        Update: {
+          chat_id?: string
+          created_at?: string
+          file_name?: string
+          file_size?: number
+          file_type?: string
+          id?: string
+          message_id?: string | null
+          mime_type?: string | null
+          storage_path?: string
+          thumbnail_path?: string | null
+          uploader_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_metadata_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "chats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_metadata_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      live_participants: {
+        Row: {
+          id: string
+          is_muted: boolean | null
+          is_video_off: boolean | null
+          joined_at: string
+          left_at: string | null
+          session_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          is_muted?: boolean | null
+          is_video_off?: boolean | null
+          joined_at?: string
+          left_at?: string | null
+          session_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          is_muted?: boolean | null
+          is_video_off?: boolean | null
+          joined_at?: string
+          left_at?: string | null
+          session_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_participants_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "live_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      live_sessions: {
+        Row: {
+          chat_id: string
+          created_at: string
+          ended_at: string | null
+          host_id: string
+          id: string
+          session_type: string
+          started_at: string
+          status: string
+          title: string | null
+        }
+        Insert: {
+          chat_id: string
+          created_at?: string
+          ended_at?: string | null
+          host_id: string
+          id?: string
+          session_type?: string
+          started_at?: string
+          status?: string
+          title?: string | null
+        }
+        Update: {
+          chat_id?: string
+          created_at?: string
+          ended_at?: string | null
+          host_id?: string
+          id?: string
+          session_type?: string
+          started_at?: string
+          status?: string
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_sessions_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "chats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_reads: {
         Row: {
           id: string
@@ -220,6 +359,44 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      webrtc_signals: {
+        Row: {
+          created_at: string
+          from_user_id: string
+          id: string
+          session_id: string
+          signal_data: Json
+          signal_type: string
+          to_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          from_user_id: string
+          id?: string
+          session_id: string
+          signal_data: Json
+          signal_type: string
+          to_user_id: string
+        }
+        Update: {
+          created_at?: string
+          from_user_id?: string
+          id?: string
+          session_id?: string
+          signal_data?: Json
+          signal_type?: string
+          to_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webrtc_signals_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "live_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
