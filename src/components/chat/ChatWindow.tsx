@@ -5,8 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { MessageBubble } from './MessageBubble';
 import { FileUploadButton } from './FileUploadButton';
 import { GroupInfoSheet } from './GroupInfoSheet';
-import { LiveSessionButton, LiveSessionDialog } from './LiveSession';
-import { useActiveSession } from '@/hooks/useLiveSession';
+import { LiveSessionButton } from './LiveSession';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,9 +30,7 @@ export const ChatWindow = ({ chat, onBack }: ChatWindowProps) => {
   const sendMessage = useSendMessage();
   const deleteMessage = useDeleteMessage();
   const markAsRead = useMarkAsRead();
-  const { data: activeSession } = useActiveSession(chat.id);
   const [messageText, setMessageText] = useState('');
-  const [showLiveSession, setShowLiveSession] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -160,14 +157,6 @@ export const ChatWindow = ({ chat, onBack }: ChatWindowProps) => {
         </DropdownMenu>
       </div>
 
-      {/* Live Session Dialog */}
-      {activeSession && showLiveSession && (
-        <LiveSessionDialog 
-          session={activeSession} 
-          chatName={displayInfo.name}
-          onClose={() => setShowLiveSession(false)}
-        />
-      )}
 
       {/* Messages */}
       <ScrollArea className="flex-1 p-4" ref={scrollRef}>
