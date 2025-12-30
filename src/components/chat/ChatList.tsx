@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { LiveIndicator } from './LiveSession';
 
 interface ChatListProps {
   chats: Chat[];
@@ -84,11 +85,14 @@ export const ChatList = ({ chats, selectedChatId, onSelectChat }: ChatListProps)
               )}
             </div>
             <div className="flex-1 overflow-hidden">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <h3 className="font-medium truncate">{displayInfo.name}</h3>
-                <span className="text-xs text-muted-foreground whitespace-nowrap">
-                  {getLastMessageTime(chat)}
-                </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <LiveIndicator chatId={chat.id} />
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">
+                    {getLastMessageTime(chat)}
+                  </span>
+                </div>
               </div>
               <div className="flex items-center justify-between">
                 <p className="text-sm text-muted-foreground truncate">
