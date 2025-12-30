@@ -119,6 +119,7 @@ export const LiveSessionDialog = ({ session, chatName, onClose }: LiveSessionDia
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(session.session_type === 'audio');
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [isLeaving, setIsLeaving] = useState(false);
   
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const isHost = session.host_id === user?.id;
@@ -126,17 +127,21 @@ export const LiveSessionDialog = ({ session, chatName, onClose }: LiveSessionDia
 
   // Initialize media stream
   useEffect(() => {
+    let mounted = true;
+    
     const initMedia = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: session.session_type === 'video',
           audio: true
         });
-        setLocalStream(stream);
         
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
+        if (!mounted) {
+          stream.getTracks().forEach(track => track.stop());
+          return;
         }
+        
+        setLocalStream(stream);
       } catch (error) {
         console.error('Failed to access media devices:', error);
       }
@@ -145,11 +150,25 @@ export const LiveSessionDialog = ({ session, chatName, onClose }: LiveSessionDia
     initMedia();
 
     return () => {
+      mounted = false;
+    };
+  }, [session.session_type]);
+
+  // Update video element when stream changes
+  useEffect(() => {
+    if (localVideoRef.current && localStream) {
+      localVideoRef.current.srcObject = localStream;
+    }
+  }, [localStream]);
+
+  // Cleanup stream on unmount
+  useEffect(() => {
+    return () => {
       if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [session.session_type]);
+  }, [localStream]);
 
   const toggleMute = () => {
     if (localStream) {
@@ -172,23 +191,45 @@ export const LiveSessionDialog = ({ session, chatName, onClose }: LiveSessionDia
   };
 
   const handleLeave = async () => {
-    if (localStream) {
-      localStream.getTracks().forEach(track => track.stop());
+    if (isLeaving) return;
+    setIsLeaving(true);
+    
+    try {
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+      }
+      await leaveSession.mutateAsync(session.id);
+      onClose();
+    } catch (error) {
+      console.error('Failed to leave session:', error);
+      setIsLeaving(false);
     }
-    await leaveSession.mutateAsync(session.id);
-    onClose();
   };
 
   const handleEnd = async () => {
-    if (localStream) {
-      localStream.getTracks().forEach(track => track.stop());
+    if (isLeaving) return;
+    setIsLeaving(true);
+    
+    try {
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+      }
+      await endSession.mutateAsync(session.id);
+      onClose();
+    } catch (error) {
+      console.error('Failed to end session:', error);
+      setIsLeaving(false);
     }
-    await endSession.mutateAsync(session.id);
-    onClose();
+  };
+
+  const handleDialogChange = (open: boolean) => {
+    if (!open && !isLeaving) {
+      handleLeave();
+    }
   };
 
   return (
-    <Dialog open onOpenChange={() => handleLeave()}>
+    <Dialog open onOpenChange={handleDialogChange}>
       <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
