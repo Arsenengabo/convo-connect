@@ -3,6 +3,7 @@ import { useChats, Chat } from '@/hooks/useChats';
 import { ChatList } from './ChatList';
 import { ChatWindow } from './ChatWindow';
 import { NewChatDialog } from './NewChatDialog';
+import { CreateGroupDialog } from './CreateGroupDialog';
 import { ProfileSheet } from './ProfileSheet';
 import { cn } from '@/lib/utils';
 import { MessageCircle } from 'lucide-react';
@@ -53,6 +54,7 @@ export const ChatLayout = () => {
           </div>
           <div className="flex items-center gap-1">
             <NewChatDialog onChatCreated={handleSelectChat} />
+            <CreateGroupDialog onCreated={handleSelectChat} />
             <ProfileSheet />
           </div>
         </div>
