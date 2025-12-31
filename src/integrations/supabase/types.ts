@@ -14,6 +14,132 @@ export type Database = {
   }
   public: {
     Tables: {
+      call_participants: {
+        Row: {
+          call_id: string
+          created_at: string
+          id: string
+          is_muted: boolean | null
+          is_video_off: boolean | null
+          joined_at: string | null
+          left_at: string | null
+          role: Database["public"]["Enums"]["call_participant_role"]
+          user_id: string
+        }
+        Insert: {
+          call_id: string
+          created_at?: string
+          id?: string
+          is_muted?: boolean | null
+          is_video_off?: boolean | null
+          joined_at?: string | null
+          left_at?: string | null
+          role?: Database["public"]["Enums"]["call_participant_role"]
+          user_id: string
+        }
+        Update: {
+          call_id?: string
+          created_at?: string
+          id?: string
+          is_muted?: boolean | null
+          is_video_off?: boolean | null
+          joined_at?: string | null
+          left_at?: string | null
+          role?: Database["public"]["Enums"]["call_participant_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_participants_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      call_signals: {
+        Row: {
+          call_id: string
+          created_at: string
+          id: string
+          payload: Json
+          receiver_id: string
+          sender_id: string
+          signal_type: string
+        }
+        Insert: {
+          call_id: string
+          created_at?: string
+          id?: string
+          payload: Json
+          receiver_id: string
+          sender_id: string
+          signal_type: string
+        }
+        Update: {
+          call_id?: string
+          created_at?: string
+          id?: string
+          payload?: Json
+          receiver_id?: string
+          sender_id?: string
+          signal_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_signals_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "calls"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calls: {
+        Row: {
+          call_type: Database["public"]["Enums"]["call_type"]
+          chat_id: string
+          created_at: string
+          ended_at: string | null
+          id: string
+          initiator_id: string
+          started_at: string | null
+          status: Database["public"]["Enums"]["call_status"]
+          updated_at: string
+        }
+        Insert: {
+          call_type?: Database["public"]["Enums"]["call_type"]
+          chat_id: string
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          initiator_id: string
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["call_status"]
+          updated_at?: string
+        }
+        Update: {
+          call_type?: Database["public"]["Enums"]["call_type"]
+          chat_id?: string
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          initiator_id?: string
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["call_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calls_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "chats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_members: {
         Row: {
           chat_id: string
@@ -417,6 +543,17 @@ export type Database = {
     }
     Enums: {
       app_role: "user" | "admin"
+      call_participant_role: "host" | "participant"
+      call_status:
+        | "initiated"
+        | "ringing"
+        | "accepted"
+        | "rejected"
+        | "in_progress"
+        | "ended"
+        | "cancelled"
+        | "missed"
+      call_type: "voice" | "video" | "live"
       message_status: "sent" | "delivered" | "read"
       message_type: "text" | "image" | "file"
     }
@@ -547,6 +684,18 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["user", "admin"],
+      call_participant_role: ["host", "participant"],
+      call_status: [
+        "initiated",
+        "ringing",
+        "accepted",
+        "rejected",
+        "in_progress",
+        "ended",
+        "cancelled",
+        "missed",
+      ],
+      call_type: ["voice", "video", "live"],
       message_status: ["sent", "delivered", "read"],
       message_type: ["text", "image", "file"],
     },

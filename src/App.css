@@ -40,3 +40,8 @@
 .read-the-docs {
   color: #888;
 }
+
+/* Mirror local video for natural selfie view */
+.mirror {
+  transform: scaleX(-1);
+}

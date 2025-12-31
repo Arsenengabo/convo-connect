@@ -6,6 +6,7 @@ import { MessageBubble } from './MessageBubble';
 import { FileUploadButton } from './FileUploadButton';
 import { GroupInfoSheet } from './GroupInfoSheet';
 import { LiveSessionButton } from './LiveSession';
+import { CallButtons } from '@/components/call/CallButtons';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -137,6 +138,7 @@ export const ChatWindow = ({ chat, onBack }: ChatWindowProps) => {
           <h2 className="font-semibold">{displayInfo.name}</h2>
           <p className="text-xs text-muted-foreground">{displayInfo.subtitle}</p>
         </div>
+        <CallButtons chat={chat} chatName={displayInfo.name} />
         <LiveSessionButton chatId={chat.id} chatName={displayInfo.name} />
         
         {chat.is_group && <GroupInfoSheet chat={chat} onLeave={onBack} />}
