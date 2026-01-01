@@ -10,6 +10,7 @@ import {
   useCallTimeout
 } from '@/hooks/useCalls';
 import { useWebRTC, useLocalMedia } from '@/hooks/useWebRTC';
+import { useMobileOptimizations } from '@/hooks/useMobileOptimizations';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +29,7 @@ import {
   Radio
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface CallUIProps {
   call: Call;
@@ -41,6 +43,7 @@ export const CallUI = ({ call, chatName, onCallEnd }: CallUIProps) => {
   const endCall = useEndCall();
   const cancelCall = useCancelCall();
   const updateParticipant = useUpdateCallParticipant();
+  const { isMobile, triggerHaptic, orientation } = useMobileOptimizations();
 
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(call.call_type === 'voice');
@@ -144,6 +147,7 @@ export const CallUI = ({ call, chatName, onCallEnd }: CallUIProps) => {
   };
 
   const handleToggleMute = () => {
+    triggerHaptic('light');
     const newMuted = !isMuted;
     setIsMuted(newMuted);
     toggleAudio(!newMuted);
@@ -152,6 +156,7 @@ export const CallUI = ({ call, chatName, onCallEnd }: CallUIProps) => {
   };
 
   const handleToggleVideo = () => {
+    triggerHaptic('light');
     const newVideoOff = !isVideoOff;
     setIsVideoOff(newVideoOff);
     toggleVideo(!newVideoOff);
@@ -160,12 +165,14 @@ export const CallUI = ({ call, chatName, onCallEnd }: CallUIProps) => {
   };
 
   const handleSwitchCamera = async () => {
+    triggerHaptic('light');
     await switchCamera();
     toast.info('Camera switched');
   };
 
   const handleEndCall = async () => {
     if (isEnding) return;
+    triggerHaptic('heavy');
     setIsEnding(true);
 
     try {
@@ -188,15 +195,29 @@ export const CallUI = ({ call, chatName, onCallEnd }: CallUIProps) => {
 
   const activeParticipants = participants.filter(p => p.joined_at && !p.left_at);
 
+  // Calculate grid columns based on participant count and orientation
+  const getGridCols = () => {
+    const count = activeParticipants.length;
+    if (isMobile && orientation === 'portrait') {
+      return count <= 2 ? 'grid-cols-1' : 'grid-cols-2';
+    }
+    return count <= 2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-2';
+  };
+
   return (
     <Dialog open onOpenChange={() => {}}>
       <DialogContent
-        className="max-w-4xl h-[85vh] flex flex-col p-0 gap-0"
+        className={cn(
+          "flex flex-col p-0 gap-0",
+          isMobile 
+            ? "w-full h-full max-w-full max-h-full rounded-none" 
+            : "max-w-4xl h-[85vh]"
+        )}
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 bg-primary text-primary-foreground">
+        <div className="flex items-center justify-between p-3 md:p-4 pt-safe bg-primary text-primary-foreground shrink-0">
           <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10 border-2 border-primary-foreground/20">
               <AvatarFallback className="bg-primary-foreground/20 text-primary-foreground">
@@ -227,9 +248,12 @@ export const CallUI = ({ call, chatName, onCallEnd }: CallUIProps) => {
         </div>
 
         {/* Video grid */}
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-2 p-2 bg-muted/50 overflow-auto">
+        <div className={cn(
+          "flex-1 grid gap-2 p-2 bg-muted/50 overflow-auto",
+          getGridCols()
+        )}>
           {/* Local video */}
-          <div className="relative rounded-lg bg-background overflow-hidden min-h-[200px] md:min-h-[300px]">
+          <div className="relative rounded-lg bg-background overflow-hidden min-h-[150px] md:min-h-[300px]">
             {isVideoCall && !isVideoOff && localStream ? (
               <video
                 ref={localVideoRef}
@@ -240,15 +264,15 @@ export const CallUI = ({ call, chatName, onCallEnd }: CallUIProps) => {
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-muted">
-                <Avatar className="h-20 w-20 md:h-24 md:w-24">
-                  <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
+                <Avatar className="h-16 w-16 md:h-24 md:w-24">
+                  <AvatarFallback className="text-xl md:text-2xl bg-primary text-primary-foreground">
                     {user?.email?.slice(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
               </div>
             )}
             <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
-              <Badge variant="secondary" className="bg-background/80 backdrop-blur">
+              <Badge variant="secondary" className="bg-background/80 backdrop-blur text-xs">
                 You {isHost && '(Host)'}
               </Badge>
               <div className="flex gap-1">
@@ -274,22 +298,22 @@ export const CallUI = ({ call, chatName, onCallEnd }: CallUIProps) => {
               return (
                 <div
                   key={participant.id}
-                  className="relative rounded-lg bg-background overflow-hidden min-h-[200px] md:min-h-[300px]"
+                  className="relative rounded-lg bg-background overflow-hidden min-h-[150px] md:min-h-[300px]"
                 >
                   {isVideoCall && stream && !participant.is_video_off ? (
                     <RemoteVideo stream={stream} />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-muted">
-                      <Avatar className="h-20 w-20 md:h-24 md:w-24">
+                      <Avatar className="h-16 w-16 md:h-24 md:w-24">
                         <AvatarImage src={participant.profile?.avatar_url || undefined} />
-                        <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
+                        <AvatarFallback className="text-xl md:text-2xl bg-primary text-primary-foreground">
                           {participant.profile?.username?.slice(0, 2).toUpperCase() || '??'}
                         </AvatarFallback>
                       </Avatar>
                     </div>
                   )}
                   <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
-                    <Badge variant="secondary" className="bg-background/80 backdrop-blur">
+                    <Badge variant="secondary" className="bg-background/80 backdrop-blur text-xs">
                       {participant.profile?.username || 'Unknown'}
                     </Badge>
                     <div className="flex gap-1">
@@ -311,9 +335,9 @@ export const CallUI = ({ call, chatName, onCallEnd }: CallUIProps) => {
 
           {/* Waiting placeholder */}
           {activeParticipants.filter(p => p.user_id !== user?.id).length === 0 && (
-            <div className="relative rounded-lg bg-muted overflow-hidden min-h-[200px] md:min-h-[300px] flex items-center justify-center">
+            <div className="relative rounded-lg bg-muted overflow-hidden min-h-[150px] md:min-h-[300px] flex items-center justify-center">
               <div className="text-center text-muted-foreground">
-                <Users className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <Users className="h-10 w-10 md:h-12 md:w-12 mx-auto mb-2 opacity-50" />
                 <p className="text-sm">
                   {isRinging ? 'Waiting for answer...' : 'Waiting for others to join...'}
                 </p>
@@ -323,29 +347,29 @@ export const CallUI = ({ call, chatName, onCallEnd }: CallUIProps) => {
         </div>
 
         {/* Control bar */}
-        <div className="p-4 bg-background border-t">
-          <div className="flex items-center justify-center gap-3">
+        <div className="p-3 md:p-4 pb-safe bg-background border-t shrink-0">
+          <div className="flex items-center justify-center gap-2 md:gap-3">
             {/* Video toggle */}
             {isVideoCall && (
               <>
                 <Button
                   variant={isVideoOff ? 'destructive' : 'secondary'}
                   size="icon"
-                  className="h-14 w-14 rounded-full shadow-lg"
+                  className="h-12 w-12 md:h-14 md:w-14 rounded-full shadow-lg touch-feedback"
                   onClick={handleToggleVideo}
                   disabled={isEnding}
                 >
-                  {isVideoOff ? <VideoOff className="h-6 w-6" /> : <Video className="h-6 w-6" />}
+                  {isVideoOff ? <VideoOff className="h-5 w-5 md:h-6 md:w-6" /> : <Video className="h-5 w-5 md:h-6 md:w-6" />}
                 </Button>
 
                 <Button
                   variant="secondary"
                   size="icon"
-                  className="h-14 w-14 rounded-full shadow-lg"
+                  className="h-12 w-12 md:h-14 md:w-14 rounded-full shadow-lg touch-feedback"
                   onClick={handleSwitchCamera}
                   disabled={isEnding || isVideoOff}
                 >
-                  <SwitchCamera className="h-6 w-6" />
+                  <SwitchCamera className="h-5 w-5 md:h-6 md:w-6" />
                 </Button>
               </>
             )}
@@ -354,32 +378,32 @@ export const CallUI = ({ call, chatName, onCallEnd }: CallUIProps) => {
             <Button
               variant={isMuted ? 'destructive' : 'secondary'}
               size="icon"
-              className="h-14 w-14 rounded-full shadow-lg"
+              className="h-12 w-12 md:h-14 md:w-14 rounded-full shadow-lg touch-feedback"
               onClick={handleToggleMute}
               disabled={isEnding}
             >
-              {isMuted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
+              {isMuted ? <MicOff className="h-5 w-5 md:h-6 md:w-6" /> : <Mic className="h-5 w-5 md:h-6 md:w-6" />}
             </Button>
 
             {/* End call */}
             <Button
               variant="destructive"
               size="icon"
-              className="h-16 w-16 rounded-full shadow-lg bg-red-600 hover:bg-red-700"
+              className="h-14 w-14 md:h-16 md:w-16 rounded-full shadow-lg bg-red-600 hover:bg-red-700 touch-feedback"
               onClick={handleEndCall}
               disabled={isEnding}
             >
-              <PhoneOff className="h-7 w-7" />
+              <PhoneOff className="h-6 w-6 md:h-7 md:w-7" />
             </Button>
 
             {/* Participant count */}
-            <div className="flex items-center gap-2 px-4 py-2 bg-muted rounded-full">
-              <Users className="h-5 w-5 text-muted-foreground" />
-              <span className="font-medium">{activeParticipants.length}</span>
+            <div className="flex items-center gap-2 px-3 py-2 md:px-4 bg-muted rounded-full">
+              <Users className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
+              <span className="font-medium text-sm md:text-base">{activeParticipants.length}</span>
             </div>
           </div>
 
-          <p className="text-center text-xs text-muted-foreground mt-3">
+          <p className="text-center text-xs text-muted-foreground mt-2 md:mt-3">
             {isHost
               ? 'Tap the red button to end the call for everyone'
               : 'Tap the red button to leave the call'}

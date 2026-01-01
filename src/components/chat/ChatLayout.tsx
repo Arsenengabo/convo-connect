@@ -5,50 +5,67 @@ import { ChatWindow } from './ChatWindow';
 import { NewChatDialog } from './NewChatDialog';
 import { CreateGroupDialog } from './CreateGroupDialog';
 import { ProfileSheet } from './ProfileSheet';
+import { useMobileOptimizations, useSwipeGesture } from '@/hooks/useMobileOptimizations';
 import { cn } from '@/lib/utils';
 import { MessageCircle } from 'lucide-react';
 
 export const ChatLayout = () => {
   const { data: chats = [], isLoading } = useChats();
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
-  const [isMobileView, setIsMobileView] = useState(false);
-
-  // Check for mobile view
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobileView(window.innerWidth < 768);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+  const { isMobile, triggerHaptic } = useMobileOptimizations();
+  const [isAnimating, setIsAnimating] = useState(false);
 
   const selectedChat = chats.find((chat: Chat) => chat.id === selectedChatId);
 
   const handleSelectChat = (chatId: string) => {
+    triggerHaptic('light');
+    if (isMobile) {
+      setIsAnimating(true);
+      setTimeout(() => setIsAnimating(false), 300);
+    }
     setSelectedChatId(chatId);
   };
 
   const handleBack = () => {
-    setSelectedChatId(null);
+    triggerHaptic('light');
+    if (isMobile) {
+      setIsAnimating(true);
+      setTimeout(() => {
+        setSelectedChatId(null);
+        setIsAnimating(false);
+      }, 50);
+    } else {
+      setSelectedChatId(null);
+    }
   };
 
+  // Swipe gesture for going back on mobile
+  const swipeHandlers = useSwipeGesture({
+    onSwipeRight: () => {
+      if (isMobile && selectedChatId) {
+        handleBack();
+      }
+    },
+  }, 80);
+
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-screen-dynamic bg-background overflow-hidden">
       {/* Sidebar / Chat List */}
       <div
         className={cn(
-          'flex h-full flex-col border-r bg-card',
-          isMobileView 
-            ? selectedChatId ? 'hidden' : 'w-full' 
-            : 'w-80 lg:w-96'
+          'flex h-full flex-col border-r bg-card transition-transform duration-300 ease-out gpu-accelerated',
+          isMobile 
+            ? selectedChatId 
+              ? 'fixed inset-0 -translate-x-full' 
+              : 'w-full translate-x-0' 
+            : 'w-80 lg:w-96 shrink-0'
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b p-4">
+        <div className="flex items-center justify-between border-b p-4 pt-safe">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary">
-              <MessageCircle className="h-4 w-4 text-primary-foreground" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary touch-feedback">
+              <MessageCircle className="h-5 w-5 text-primary-foreground" />
             </div>
             <h1 className="text-xl font-bold">ChatFlow</h1>
           </div>
@@ -75,17 +92,20 @@ export const ChatLayout = () => {
 
       {/* Chat Window */}
       <div
+        {...(isMobile ? swipeHandlers : {})}
         className={cn(
-          'flex-1',
-          isMobileView 
-            ? selectedChatId ? 'block' : 'hidden' 
+          'flex-1 transition-transform duration-300 ease-out gpu-accelerated',
+          isMobile 
+            ? selectedChatId 
+              ? 'fixed inset-0 translate-x-0' 
+              : 'fixed inset-0 translate-x-full'
             : 'block'
         )}
       >
         {selectedChat ? (
           <ChatWindow 
             chat={selectedChat} 
-            onBack={isMobileView ? handleBack : undefined}
+            onBack={isMobile ? handleBack : undefined}
           />
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center">
