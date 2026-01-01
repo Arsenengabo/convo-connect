@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Chat, ChatMember } from '@/hooks/useChats';
 import { useMessages, useSendMessage, useDeleteMessage, useMarkAsRead } from '@/hooks/useMessages';
 import { useAuth } from '@/contexts/AuthContext';
+import { useMobileOptimizations } from '@/hooks/useMobileOptimizations';
 import { MessageBubble } from './MessageBubble';
 import { FileUploadButton } from './FileUploadButton';
 import { GroupInfoSheet } from './GroupInfoSheet';
@@ -31,9 +32,11 @@ export const ChatWindow = ({ chat, onBack }: ChatWindowProps) => {
   const sendMessage = useSendMessage();
   const deleteMessage = useDeleteMessage();
   const markAsRead = useMarkAsRead();
+  const { isMobile, triggerHaptic, isKeyboardOpen } = useMobileOptimizations();
   const [messageText, setMessageText] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Get chat display info
   const getChatDisplayInfo = () => {
@@ -67,9 +70,7 @@ export const ChatWindow = ({ chat, onBack }: ChatWindowProps) => {
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   // Mark messages as read when chat is opened
@@ -77,15 +78,18 @@ export const ChatWindow = ({ chat, onBack }: ChatWindowProps) => {
     markAsRead(chat.id);
   }, [chat.id, markAsRead]);
 
-  // Focus input on mount
+  // Focus input on mount (but not on mobile to prevent keyboard popup)
   useEffect(() => {
-    inputRef.current?.focus();
-  }, [chat.id]);
+    if (!isMobile) {
+      inputRef.current?.focus();
+    }
+  }, [chat.id, isMobile]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!messageText.trim()) return;
 
+    triggerHaptic('light');
     const text = messageText.trim();
     setMessageText('');
 
@@ -121,47 +125,64 @@ export const ChatWindow = ({ chat, onBack }: ChatWindowProps) => {
 
   return (
     <div className="flex h-full flex-col bg-background">
-      {/* Header */}
-      <div className="flex items-center gap-3 border-b p-4">
+      {/* Header - with safe area padding on mobile */}
+      <div className="flex items-center gap-2 border-b p-3 md:p-4 pt-safe shrink-0">
         {onBack && (
-          <Button variant="ghost" size="icon" onClick={onBack} className="md:hidden">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={onBack} 
+            className="h-10 w-10 touch-feedback shrink-0"
+          >
             <ArrowLeft className="h-5 w-5" />
           </Button>
         )}
-        <Avatar className="h-10 w-10">
+        <Avatar className="h-10 w-10 shrink-0">
           <AvatarImage src={displayInfo.avatar || undefined} />
           <AvatarFallback className="bg-primary text-primary-foreground">
             {displayInfo.name.slice(0, 2).toUpperCase()}
           </AvatarFallback>
         </Avatar>
-        <div className="flex-1">
-          <h2 className="font-semibold">{displayInfo.name}</h2>
-          <p className="text-xs text-muted-foreground">{displayInfo.subtitle}</p>
+        <div className="flex-1 min-w-0">
+          <h2 className="font-semibold truncate">{displayInfo.name}</h2>
+          <p className="text-xs text-muted-foreground truncate">{displayInfo.subtitle}</p>
         </div>
-        <CallButtons chat={chat} chatName={displayInfo.name} />
-        <LiveSessionButton chatId={chat.id} chatName={displayInfo.name} />
         
-        {chat.is_group && <GroupInfoSheet chat={chat} onLeave={onBack} />}
-        
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <MoreVertical className="h-5 w-5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem>View profile</DropdownMenuItem>
-            <DropdownMenuItem>Mute notifications</DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive">
-              Delete chat
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* Action buttons - responsive layout */}
+        <div className="flex items-center gap-1 shrink-0">
+          {/* Hide call buttons on very small screens, show in dropdown */}
+          <div className="hidden sm:flex items-center gap-1">
+            <CallButtons chat={chat} chatName={displayInfo.name} />
+            <LiveSessionButton chatId={chat.id} chatName={displayInfo.name} />
+          </div>
+          
+          {chat.is_group && <GroupInfoSheet chat={chat} onLeave={onBack} />}
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-10 w-10 touch-feedback">
+                <MoreVertical className="h-5 w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              {/* Show call options in dropdown on mobile */}
+              <div className="sm:hidden">
+                <DropdownMenuItem className="gap-2">
+                  <CallButtons chat={chat} chatName={displayInfo.name} />
+                </DropdownMenuItem>
+              </div>
+              <DropdownMenuItem>View profile</DropdownMenuItem>
+              <DropdownMenuItem>Mute notifications</DropdownMenuItem>
+              <DropdownMenuItem className="text-destructive">
+                Delete chat
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
-
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+      <ScrollArea className="flex-1 p-3 md:p-4" ref={scrollRef}>
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <div className="animate-pulse text-muted-foreground">Loading messages...</div>
@@ -175,8 +196,8 @@ export const ChatWindow = ({ chat, onBack }: ChatWindowProps) => {
           <div className="space-y-4">
             {Object.entries(groupedMessages).map(([date, msgs]) => (
               <div key={date}>
-                <div className="mb-4 flex justify-center">
-                  <span className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">
+                <div className="mb-4 flex justify-center sticky top-0 z-10">
+                  <span className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground shadow-sm">
                     {format(new Date(date), 'MMMM d, yyyy')}
                   </span>
                 </div>
@@ -198,12 +219,16 @@ export const ChatWindow = ({ chat, onBack }: ChatWindowProps) => {
                 </div>
               </div>
             ))}
+            <div ref={messagesEndRef} />
           </div>
         )}
       </ScrollArea>
 
-      {/* Message Input */}
-      <form onSubmit={handleSendMessage} className="border-t p-4">
+      {/* Message Input - with safe area padding on mobile */}
+      <form 
+        onSubmit={handleSendMessage} 
+        className="border-t p-3 md:p-4 pb-safe shrink-0 bg-background"
+      >
         <div className="flex items-center gap-2">
           <FileUploadButton chatId={chat.id} />
           <Input
@@ -211,14 +236,15 @@ export const ChatWindow = ({ chat, onBack }: ChatWindowProps) => {
             placeholder="Type a message..."
             value={messageText}
             onChange={(e) => setMessageText(e.target.value)}
-            className="flex-1"
+            className="flex-1 h-11 text-base"
           />
           <Button 
             type="submit" 
             size="icon" 
+            className="h-11 w-11 touch-feedback shrink-0"
             disabled={!messageText.trim() || sendMessage.isPending}
           >
-            <Send className="h-4 w-4" />
+            <Send className="h-5 w-5" />
           </Button>
         </div>
       </form>
