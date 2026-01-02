@@ -413,35 +413,34 @@ export const useRejectCall = () => {
 
       if (partError) throw partError;
 
-      // Check remaining participants
-      const { count } = await supabase
-        .from('call_participants')
-        .select('*', { count: 'exact', head: true })
-        .eq('call_id', callId)
-        .is('left_at', null)
-        .not('joined_at', 'is', null);
+      // For a ringing call, rejecting should end it immediately
+      // This ensures the caller also sees the call as ended
+      const { data: call, error: callError } = await supabase
+        .from('calls')
+        .update({ 
+          status: 'rejected',
+          ended_at: new Date().toISOString()
+        })
+        .eq('id', callId)
+        .eq('status', 'ringing') // Only reject if still ringing
+        .select()
+        .single();
 
-      // If no active participants, end the call
-      if (count === 0) {
-        const { data: call, error: callError } = await supabase
+      if (callError) {
+        // If update failed (maybe call was already answered/cancelled), just get the call
+        const { data: existingCall } = await supabase
           .from('calls')
-          .update({ 
-            status: 'rejected',
-            ended_at: new Date().toISOString()
-          })
-          .eq('id', callId)
           .select()
+          .eq('id', callId)
           .single();
-
-        if (callError) throw callError;
-        return call;
+        return existingCall;
       }
 
-      const { data: call } = await supabase
-        .from('calls')
-        .select()
-        .eq('id', callId)
-        .single();
+      // Clean up signals
+      await supabase
+        .from('call_signals')
+        .delete()
+        .eq('call_id', callId);
 
       return call;
     },
