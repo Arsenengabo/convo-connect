@@ -23,6 +23,7 @@ export type Database = {
           is_video_off: boolean | null
           joined_at: string | null
           left_at: string | null
+          read_at: string | null
           role: Database["public"]["Enums"]["call_participant_role"]
           user_id: string
         }
@@ -34,6 +35,7 @@ export type Database = {
           is_video_off?: boolean | null
           joined_at?: string | null
           left_at?: string | null
+          read_at?: string | null
           role?: Database["public"]["Enums"]["call_participant_role"]
           user_id: string
         }
@@ -45,6 +47,7 @@ export type Database = {
           is_video_off?: boolean | null
           joined_at?: string | null
           left_at?: string | null
+          read_at?: string | null
           role?: Database["public"]["Enums"]["call_participant_role"]
           user_id?: string
         }

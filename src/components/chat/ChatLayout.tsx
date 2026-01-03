@@ -1,15 +1,19 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useChats, Chat } from '@/hooks/useChats';
 import { ChatList } from './ChatList';
 import { ChatWindow } from './ChatWindow';
 import { NewChatDialog } from './NewChatDialog';
 import { CreateGroupDialog } from './CreateGroupDialog';
 import { ProfileSheet } from './ProfileSheet';
+import { MissedCallBadge } from '@/components/call/MissedCallBadge';
 import { useMobileOptimizations, useSwipeGesture } from '@/hooks/useMobileOptimizations';
 import { cn } from '@/lib/utils';
-import { MessageCircle } from 'lucide-react';
+import { MessageCircle, Phone } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 export const ChatLayout = () => {
+  const navigate = useNavigate();
   const { data: chats = [], isLoading } = useChats();
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const { isMobile, triggerHaptic } = useMobileOptimizations();
@@ -70,6 +74,15 @@ export const ChatLayout = () => {
             <h1 className="text-xl font-bold">ChatFlow</h1>
           </div>
           <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('/calls')}
+              className="relative"
+            >
+              <Phone className="h-5 w-5" />
+              <MissedCallBadge className="absolute -top-1 -right-1" />
+            </Button>
             <NewChatDialog onChatCreated={handleSelectChat} />
             <CreateGroupDialog onCreated={handleSelectChat} />
             <ProfileSheet />

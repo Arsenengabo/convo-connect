@@ -11,6 +11,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Install from "./pages/Install";
+import Calls from "./pages/Calls";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -38,6 +39,7 @@ const App = () => (
                   <Route path="/" element={<Index />} />
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/install" element={<Install />} />
+                  <Route path="/calls" element={<Calls />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </BrowserRouter>
