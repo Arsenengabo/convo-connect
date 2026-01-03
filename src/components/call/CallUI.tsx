@@ -26,10 +26,14 @@ import {
   PhoneOff,
   Users,
   SwitchCamera,
-  Radio
+  Radio,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface CallUIProps {
   call: Call;
@@ -39,6 +43,7 @@ interface CallUIProps {
 
 export const CallUI = ({ call, chatName, onCallEnd }: CallUIProps) => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { data: participants = [] } = useCallParticipants(call.id);
   const endCall = useEndCall();
   const cancelCall = useCancelCall();
@@ -50,10 +55,13 @@ export const CallUI = ({ call, chatName, onCallEnd }: CallUIProps) => {
   const [callDuration, setCallDuration] = useState(0);
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
   const [isEnding, setIsEnding] = useState(false);
+  const [isSpeakerOn, setIsSpeakerOn] = useState(true);
+  const [callStatus, setCallStatus] = useState(call.status);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
+  const ringtoneRef = useRef<HTMLAudioElement | null>(null);
   const isHost = call.initiator_id === user?.id;
-  const isRinging = call.status === 'ringing';
+  const isRinging = callStatus === 'ringing';
   const isVideoCall = call.call_type === 'video';
 
   // Use call timeout for ringing state
@@ -91,6 +99,98 @@ export const CallUI = ({ call, chatName, onCallEnd }: CallUIProps) => {
     onRemoteStream: handleRemoteStream,
     onPeerDisconnected: handlePeerDisconnected
   });
+
+  // Play ringing tone for caller while waiting
+  useEffect(() => {
+    if (isRinging && isHost) {
+      // Create oscillator-based ringing tone
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.value = 440;
+      oscillator.type = 'sine';
+      gainNode.gain.value = 0.1;
+      
+      let isPlaying = true;
+      
+      // Ring pattern: on-off-on-off
+      const playRingPattern = () => {
+        if (!isPlaying) return;
+        
+        oscillator.start();
+        setTimeout(() => {
+          if (isPlaying) {
+            oscillator.stop();
+          }
+        }, 1000);
+      };
+      
+      // Use interval for ring pattern
+      const ringInterval = setInterval(() => {
+        if (isPlaying && audioContext.state === 'running') {
+          const osc = audioContext.createOscillator();
+          const gain = audioContext.createGain();
+          osc.connect(gain);
+          gain.connect(audioContext.destination);
+          osc.frequency.value = 440;
+          osc.type = 'sine';
+          gain.gain.value = 0.1;
+          osc.start();
+          setTimeout(() => osc.stop(), 400);
+        }
+      }, 2000);
+
+      return () => {
+        isPlaying = false;
+        clearInterval(ringInterval);
+        audioContext.close();
+      };
+    }
+  }, [isRinging, isHost]);
+
+  // Subscribe to call status changes for real-time sync
+  useEffect(() => {
+    const channel = supabase
+      .channel(`call-status-${call.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'calls',
+          filter: `id=eq.${call.id}`
+        },
+        (payload) => {
+          const newStatus = payload.new.status;
+          setCallStatus(newStatus);
+          
+          // Auto-close CallUI when call ends
+          if (['ended', 'rejected', 'cancelled', 'missed'].includes(newStatus)) {
+            stopMedia();
+            closeAllConnections();
+            
+            if (newStatus === 'rejected') {
+              toast.info('Call was declined');
+            } else if (newStatus === 'cancelled') {
+              toast.info('Call was cancelled');
+            } else if (newStatus === 'missed') {
+              toast.info('Call was not answered');
+            }
+            
+            onCallEnd();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [call.id, onCallEnd, stopMedia, closeAllConnections]);
 
   // Initialize media on mount
   useEffect(() => {
@@ -168,6 +268,22 @@ export const CallUI = ({ call, chatName, onCallEnd }: CallUIProps) => {
     triggerHaptic('light');
     await switchCamera();
     toast.info('Camera switched');
+  };
+
+  const handleToggleSpeaker = () => {
+    triggerHaptic('light');
+    setIsSpeakerOn(!isSpeakerOn);
+    // Apply speaker setting to all audio elements
+    document.querySelectorAll('video, audio').forEach((el) => {
+      if (el instanceof HTMLVideoElement || el instanceof HTMLAudioElement) {
+        // Use sinkId if available (Chrome)
+        if ('setSinkId' in el) {
+          const sinkId = isSpeakerOn ? '' : 'default';
+          (el as any).setSinkId(sinkId).catch(() => {});
+        }
+      }
+    });
+    toast.info(isSpeakerOn ? 'Speaker off' : 'Speaker on');
   };
 
   const handleEndCall = async () => {
@@ -383,6 +499,17 @@ export const CallUI = ({ call, chatName, onCallEnd }: CallUIProps) => {
               disabled={isEnding}
             >
               {isMuted ? <MicOff className="h-5 w-5 md:h-6 md:w-6" /> : <Mic className="h-5 w-5 md:h-6 md:w-6" />}
+            </Button>
+
+            {/* Speaker toggle */}
+            <Button
+              variant={isSpeakerOn ? 'secondary' : 'outline'}
+              size="icon"
+              className="h-12 w-12 md:h-14 md:w-14 rounded-full shadow-lg touch-feedback"
+              onClick={handleToggleSpeaker}
+              disabled={isEnding}
+            >
+              {isSpeakerOn ? <Volume2 className="h-5 w-5 md:h-6 md:w-6" /> : <VolumeX className="h-5 w-5 md:h-6 md:w-6" />}
             </Button>
 
             {/* End call */}
