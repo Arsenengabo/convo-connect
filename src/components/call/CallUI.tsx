@@ -10,6 +10,7 @@ import {
   useCallTimeout
 } from '@/hooks/useCalls';
 import { useWebRTC, useLocalMedia } from '@/hooks/useWebRTC';
+import { ConnectionQualityIndicator } from './ConnectionQualityIndicator';
 import { useMobileOptimizations } from '@/hooks/useMobileOptimizations';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -95,7 +96,7 @@ export const CallUI = ({ call, chatName, onCallEnd }: CallUIProps) => {
     });
   }, []);
 
-  const { createOffer, closeAllConnections } = useWebRTC({
+  const { createOffer, closeAllConnections, connectionStats } = useWebRTC({
     callId: call.id,
     localStream,
     onRemoteStream: handleRemoteStream,
@@ -379,9 +380,18 @@ export const CallUI = ({ call, chatName, onCallEnd }: CallUIProps) => {
               </div>
             </div>
           </div>
-          <Badge variant="secondary" className="bg-primary-foreground/20 text-primary-foreground">
-            {call.call_type === 'video' ? 'Video Call' : 'Voice Call'}
-          </Badge>
+          <div className="flex items-center gap-2">
+            {!isRinging && (
+              <ConnectionQualityIndicator
+                quality={connectionStats.quality}
+                roundTripTime={connectionStats.roundTripTime}
+                className="text-primary-foreground"
+              />
+            )}
+            <Badge variant="secondary" className="bg-primary-foreground/20 text-primary-foreground">
+              {call.call_type === 'video' ? 'Video Call' : 'Voice Call'}
+            </Badge>
+          </div>
         </div>
 
         {/* Video grid */}
