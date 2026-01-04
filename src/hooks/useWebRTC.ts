@@ -15,6 +15,15 @@ interface PeerConnection {
   stream?: MediaStream;
 }
 
+export type ConnectionQuality = 'excellent' | 'good' | 'fair' | 'poor' | 'disconnected';
+
+interface ConnectionStats {
+  quality: ConnectionQuality;
+  roundTripTime: number | null;
+  packetsLost: number;
+  jitter: number | null;
+}
+
 interface UseWebRTCOptions {
   callId: string | null;
   localStream: MediaStream | null;
@@ -31,6 +40,71 @@ export const useWebRTC = ({
   const peerConnections = useRef<Map<string, PeerConnection>>(new Map());
   const { signals, sendSignal, consumeSignal } = useCallSignaling(callId);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [connectionStats, setConnectionStats] = useState<ConnectionStats>({
+    quality: 'good',
+    roundTripTime: null,
+    packetsLost: 0,
+    jitter: null
+  });
+
+  // Monitor connection quality
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const connections = Array.from(peerConnections.current.values());
+      if (connections.length === 0) return;
+
+      let totalRtt = 0;
+      let totalPacketsLost = 0;
+      let totalJitter = 0;
+      let statCount = 0;
+
+      for (const { connection } of connections) {
+        try {
+          const stats = await connection.getStats();
+          stats.forEach(report => {
+            if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+              if (report.currentRoundTripTime) {
+                totalRtt += report.currentRoundTripTime * 1000;
+                statCount++;
+              }
+            }
+            if (report.type === 'inbound-rtp' && report.kind === 'audio') {
+              totalPacketsLost += report.packetsLost || 0;
+              if (report.jitter) {
+                totalJitter += report.jitter * 1000;
+              }
+            }
+          });
+        } catch (e) {
+          // Stats unavailable
+        }
+      }
+
+      const avgRtt = statCount > 0 ? totalRtt / statCount : null;
+      const avgJitter = statCount > 0 ? totalJitter / statCount : null;
+
+      // Determine quality based on RTT and packet loss
+      let quality: ConnectionQuality = 'excellent';
+      if (avgRtt === null) {
+        quality = connections.length > 0 ? 'good' : 'disconnected';
+      } else if (avgRtt > 400 || totalPacketsLost > 50) {
+        quality = 'poor';
+      } else if (avgRtt > 200 || totalPacketsLost > 20) {
+        quality = 'fair';
+      } else if (avgRtt > 100 || totalPacketsLost > 5) {
+        quality = 'good';
+      }
+
+      setConnectionStats({
+        quality,
+        roundTripTime: avgRtt,
+        packetsLost: totalPacketsLost,
+        jitter: avgJitter
+      });
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const createPeerConnection = useCallback((peerId: string): RTCPeerConnection => {
     const existingPeer = peerConnections.current.get(peerId);
@@ -186,7 +260,8 @@ export const useWebRTC = ({
     closeAllConnections,
     getPeerStream,
     isConnecting,
-    peerCount: peerConnections.current.size
+    peerCount: peerConnections.current.size,
+    connectionStats
   };
 };
 
