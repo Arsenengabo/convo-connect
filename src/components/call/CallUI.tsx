@@ -30,7 +30,9 @@ import {
   Radio,
   Volume2,
   VolumeX,
-  Loader2
+  Loader2,
+  ScreenShare,
+  ScreenShareOff
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -73,11 +75,15 @@ export const CallUI = ({ call, chatName, onCallEnd }: CallUIProps) => {
   // Initialize local media
   const {
     stream: localStream,
+    screenStream,
+    isScreenSharing,
     initMedia,
     stopMedia,
     toggleAudio,
     toggleVideo,
-    switchCamera
+    switchCamera,
+    startScreenShare,
+    stopScreenShare
   } = useLocalMedia({
     video: isVideoCall,
     audio: true
@@ -289,6 +295,19 @@ export const CallUI = ({ call, chatName, onCallEnd }: CallUIProps) => {
     toast.info(isSpeakerOn ? 'Speaker off' : 'Speaker on');
   };
 
+  const handleToggleScreenShare = async () => {
+    triggerHaptic('light');
+    if (isScreenSharing) {
+      stopScreenShare();
+      toast.info('Screen sharing stopped');
+    } else {
+      const stream = await startScreenShare();
+      if (stream) {
+        toast.success('Screen sharing started');
+      }
+    }
+  };
+
   // Reset isEnding after timeout to prevent stuck state
   useEffect(() => {
     if (isEnding) {
@@ -399,6 +418,19 @@ export const CallUI = ({ call, chatName, onCallEnd }: CallUIProps) => {
           "flex-1 grid gap-2 p-2 bg-muted/50 overflow-auto",
           getGridCols()
         )}>
+          {/* Screen share video (if sharing) */}
+          {isScreenSharing && screenStream && (
+            <div className="relative rounded-lg bg-background overflow-hidden min-h-[150px] md:min-h-[300px] col-span-full">
+              <ScreenShareVideo stream={screenStream} />
+              <div className="absolute bottom-2 left-2">
+                <Badge variant="default" className="bg-primary text-primary-foreground text-xs">
+                  <ScreenShare className="h-3 w-3 mr-1" />
+                  Your Screen
+                </Badge>
+              </div>
+            </div>
+          )}
+
           {/* Local video */}
           <div className="relative rounded-lg bg-background overflow-hidden min-h-[150px] md:min-h-[300px]">
             {isVideoCall && !isVideoOff && localStream ? (
@@ -431,6 +463,11 @@ export const CallUI = ({ call, chatName, onCallEnd }: CallUIProps) => {
                 {isVideoOff && isVideoCall && (
                   <Badge variant="destructive" className="px-2">
                     <VideoOff className="h-3 w-3" />
+                  </Badge>
+                )}
+                {isScreenSharing && (
+                  <Badge className="px-2 bg-primary">
+                    <ScreenShare className="h-3 w-3" />
                   </Badge>
                 )}
               </div>
@@ -543,6 +580,24 @@ export const CallUI = ({ call, chatName, onCallEnd }: CallUIProps) => {
               {isSpeakerOn ? <Volume2 className="h-5 w-5 md:h-6 md:w-6" /> : <VolumeX className="h-5 w-5 md:h-6 md:w-6" />}
             </Button>
 
+            {/* Screen share toggle */}
+            {isVideoCall && (
+              <Button
+                variant={isScreenSharing ? 'default' : 'secondary'}
+                size="icon"
+                className="h-12 w-12 md:h-14 md:w-14 rounded-full shadow-lg touch-feedback"
+                onClick={handleToggleScreenShare}
+                disabled={isEnding}
+                title={isScreenSharing ? 'Stop sharing' : 'Share screen'}
+              >
+                {isScreenSharing ? (
+                  <ScreenShareOff className="h-5 w-5 md:h-6 md:w-6" />
+                ) : (
+                  <ScreenShare className="h-5 w-5 md:h-6 md:w-6" />
+                )}
+              </Button>
+            )}
+
             {/* End call */}
             <Button
               variant="destructive"
@@ -597,6 +652,26 @@ const RemoteVideo = ({ stream }: { stream: MediaStream }) => {
       autoPlay
       playsInline
       className="w-full h-full object-cover"
+    />
+  );
+};
+
+// Screen share video component
+const ScreenShareVideo = ({ stream }: { stream: MediaStream }) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream;
+    }
+  }, [stream]);
+
+  return (
+    <video
+      ref={videoRef}
+      autoPlay
+      playsInline
+      className="w-full h-full object-contain bg-black"
     />
   );
 };

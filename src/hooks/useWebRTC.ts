@@ -271,6 +271,8 @@ export const useLocalMedia = (options: {
   audio: boolean;
 }) => {
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
 
@@ -301,7 +303,12 @@ export const useLocalMedia = (options: {
       stream.getTracks().forEach(track => track.stop());
       setStream(null);
     }
-  }, [stream]);
+    if (screenStream) {
+      screenStream.getTracks().forEach(track => track.stop());
+      setScreenStream(null);
+      setIsScreenSharing(false);
+    }
+  }, [stream, screenStream]);
 
   const toggleAudio = useCallback((enabled: boolean) => {
     if (stream) {
@@ -348,21 +355,58 @@ export const useLocalMedia = (options: {
     setStream(stream);
   }, [stream, options.video]);
 
+  const startScreenShare = useCallback(async (): Promise<MediaStream | null> => {
+    try {
+      const displayStream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: false
+      });
+
+      // Handle when user stops sharing via browser UI
+      displayStream.getVideoTracks()[0].onended = () => {
+        setScreenStream(null);
+        setIsScreenSharing(false);
+      };
+
+      setScreenStream(displayStream);
+      setIsScreenSharing(true);
+      return displayStream;
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        console.error('Failed to start screen share:', err);
+      }
+      return null;
+    }
+  }, []);
+
+  const stopScreenShare = useCallback(() => {
+    if (screenStream) {
+      screenStream.getTracks().forEach(track => track.stop());
+      setScreenStream(null);
+      setIsScreenSharing(false);
+    }
+  }, [screenStream]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       stream?.getTracks().forEach(track => track.stop());
+      screenStream?.getTracks().forEach(track => track.stop());
     };
   }, []);
 
   return {
     stream,
+    screenStream,
+    isScreenSharing,
     error,
     isInitializing,
     initMedia,
     stopMedia,
     toggleAudio,
     toggleVideo,
-    switchCamera
+    switchCamera,
+    startScreenShare,
+    stopScreenShare
   };
 };
