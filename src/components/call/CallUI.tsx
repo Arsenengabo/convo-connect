@@ -28,7 +28,8 @@ import {
   SwitchCamera,
   Radio,
   Volume2,
-  VolumeX
+  VolumeX,
+  Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -60,6 +61,7 @@ export const CallUI = ({ call, chatName, onCallEnd }: CallUIProps) => {
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const ringtoneRef = useRef<HTMLAudioElement | null>(null);
+  const endingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isHost = call.initiator_id === user?.id;
   const isRinging = callStatus === 'ringing';
   const isVideoCall = call.call_type === 'video';
@@ -286,8 +288,27 @@ export const CallUI = ({ call, chatName, onCallEnd }: CallUIProps) => {
     toast.info(isSpeakerOn ? 'Speaker off' : 'Speaker on');
   };
 
+  // Reset isEnding after timeout to prevent stuck state
+  useEffect(() => {
+    if (isEnding) {
+      endingTimeoutRef.current = setTimeout(() => {
+        setIsEnding(false);
+      }, 5000);
+    }
+    return () => {
+      if (endingTimeoutRef.current) {
+        clearTimeout(endingTimeoutRef.current);
+      }
+    };
+  }, [isEnding]);
+
   const handleEndCall = async () => {
-    if (isEnding) return;
+    // If already ending for too long, force close
+    if (isEnding) {
+      onCallEnd();
+      return;
+    }
+    
     triggerHaptic('heavy');
     setIsEnding(true);
 
@@ -300,12 +321,12 @@ export const CallUI = ({ call, chatName, onCallEnd }: CallUIProps) => {
       } else {
         await endCall.mutateAsync(call.id);
       }
-
-      onCallEnd();
     } catch (error) {
       console.error('Failed to end call:', error);
-      toast.error('Failed to end call');
-      setIsEnding(false);
+      toast.error('Failed to end call properly');
+    } finally {
+      // Always close the UI
+      onCallEnd();
     }
   };
 
@@ -516,11 +537,20 @@ export const CallUI = ({ call, chatName, onCallEnd }: CallUIProps) => {
             <Button
               variant="destructive"
               size="icon"
-              className="h-14 w-14 md:h-16 md:w-16 rounded-full shadow-lg bg-red-600 hover:bg-red-700 touch-feedback"
+              className={cn(
+                "h-14 w-14 md:h-16 md:w-16 rounded-full shadow-lg touch-feedback",
+                isEnding 
+                  ? "bg-destructive/70 cursor-wait" 
+                  : "bg-destructive hover:bg-destructive/90"
+              )}
               onClick={handleEndCall}
-              disabled={isEnding}
+              aria-busy={isEnding}
             >
-              <PhoneOff className="h-6 w-6 md:h-7 md:w-7" />
+              {isEnding ? (
+                <Loader2 className="h-6 w-6 md:h-7 md:w-7 animate-spin" />
+              ) : (
+                <PhoneOff className="h-6 w-6 md:h-7 md:w-7" />
+              )}
             </Button>
 
             {/* Participant count */}
